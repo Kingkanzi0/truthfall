@@ -56,6 +56,8 @@ Everything else is deterministic Python. **Scores are recomputed on-chain** from
 | `get_card(card_id)` | view | JSON |
 | `get_leaderboard(day, section)` | view | JSON top 10 for that section |
 | `get_player(day, user)` | view | best score per section that day and appeals won |
+| `curate(card_ids, action)` | write, owner only | `card_ids` like `5,6,7`; `action` is `world` or `genlayer` (move) or `retire` |
+| `get_owner()` | view | the deployer address |
 | `get_day()` / `get_card_count()` | view | int |
 
 ## Repository layout
@@ -80,6 +82,7 @@ The offline tests cover:
 - transient load errors
 - deterministic scoring and the leaderboard
 - separate decks, scores and leaderboards for the two sections
+- owner-only curation (move between sections, retire)
 - appeals that win, lose or retire a card, including the deposit refund
 
 The mock is not GenVM, so behaviour must also be confirmed live on Bradbury.
@@ -95,19 +98,23 @@ Then put the address in `DEFAULT_CONTRACT` at the top of the script in `frontend
 
 Seed the decks from the app with **+ Cards**. Pick the section, then give one source page and 2–5 statements from its opening paragraphs (a Wikipedia article for World, a docs.genlayer.com page for GenLayer).
 
+## Curation
+
+Anyone can add cards, so the deployer can tidy the deck with `curate`: move cards that went into the wrong section, or retire spam and outdated cards. Curation cannot change a verdict (only validators do that, through `add_cards` and `appeal`), and every change is a public transaction. In the app, the **Curate** button appears only for the owner's wallet.
+
 ## Known limits
 
 - Card verdicts are public on-chain, so a determined player could look them up before playing. The daily order and on-chain scoring keep the leaderboard comparable. A commit-reveal deck is a possible future milestone.
 - Validators read the first 8,000 characters of a page, so statements should come from the top of the source.
-- Heavy websites can make the leader run out of time (`LeaderTimeout`). For the GenLayer section, cite the plain-text docs files (`https://raw.githubusercontent.com/genlayerlabs/genlayer-docs/main/pages/...mdx`). They carry the same text as docs.genlayer.com without menus or scripts.
+- Heavy websites can make the leader run out of time (`LeaderTimeout`). For the GenLayer section, cite the plain-text docs files through jsDelivr (`https://cdn.jsdelivr.net/gh/genlayerlabs/genlayer-docs@main/pages/...mdx`); raw.githubusercontent.com also works but was throttled during seeding. They carry the same text as docs.genlayer.com without menus or scripts.
 
 ## Deployment record
 
 | Item | Value |
 | --- | --- |
 | Network | Testnet Bradbury (chain 4221) |
-| Contract | `0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A` |
-| Deploy tx | `0xad1869904e9f9be9253dc72a7eb8b365f2d481f72f7d7fbf8fa3d957e2e2dd99` |
+| Contract | `0xF0236229896895F1564f34C9d5a4BF978cE2791b` |
+| Deploy tx | `0x18164958715433cf1275ebe23cd5b94ab308ea122a02d85cf5ec16c8ab32a0f6` |
 | Deploy result | ACCEPTED, validators AGREE, FINISHED_WITH_RETURN (9 Oct 2026) |
-| Earlier contract | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` (retired before any cards: its first batch hit LeaderTimeout on the heavy docs site, which led to the plain-text sources and tolerant validator) |
+| Earlier test contracts | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` (first batch hit LeaderTimeout on the heavy docs site, which led to plain-text sources and the tolerant validator); `0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A` (worked, but had no way to fix a batch saved to the wrong section, which led to `curate`) |
 | Live game | https://kingkanzi0.github.io/truthfall/frontend/ |
