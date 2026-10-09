@@ -18,7 +18,7 @@ SECTIONS = ("world", "genlayer")          # two decks, two leaderboards
 
 MAX_BATCH, MIN_LEN, MAX_LEN = 5, 12, 160
 MAX_TOPIC, MAX_NOTE, MAX_REASON = 40, 240, 200
-MAX_PAGE, RENDER_WAIT = 5000, "2s"
+MAX_PAGE, RENDER_WAIT = 8000, "2s"
 APPEAL_FEE = 10 ** 17                      # 0.1 GEN, refunded if the appeal wins
 DAY = 86400
 MAX_ANSWERS, BOARD_SIZE = 200, 10
@@ -191,7 +191,11 @@ JSON only: {{"verdicts": ["TRUE|FALSE|UNCLEAR", ...one per statement in order], 
 			lead = res.calldata
 			if not isinstance(lead, dict) or not isinstance(lead.get("verdicts"), list):
 				return False
-			return leader_fn()["verdicts"] == lead["verdicts"]   # decisions only
+			mine, theirs = leader_fn()["verdicts"], lead["verdicts"]
+			if len(mine) != len(theirs):
+				return False
+			# Decisions only. A leader UNCLEAR just retires that card, so it is safe to accept.
+			return all(t == m or t == V_UNCLEAR for m, t in zip(mine, theirs))
 
 		out = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
 		who = gl.message.sender_address.as_hex.lower()
