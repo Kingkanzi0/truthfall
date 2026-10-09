@@ -127,6 +127,24 @@ def test_lying_leader_is_rejected():
     assert c.get_card_count() == 0
 
 
+def test_leader_unclear_is_accepted_as_retire():
+    mod, c = fresh()
+    llm_batch(["TRUE", "UNCLEAR"], "leader")
+    llm_batch(["TRUE", "FALSE"], "validator")
+    as_(ALICE)
+    out = json.loads(c.add_cards(SRC, "genlayer", "Basics", "First statement here\nSecond statement here"))
+    assert out["verdicts"] == ["TRUE", "UNCLEAR"]
+    assert json.loads(c.get_card(1))["verdict"] == "RETIRED"
+
+
+def test_validator_unclear_rejects_decisive_leader():
+    mod, c = fresh()
+    llm_batch(["TRUE", "TRUE"], "leader")
+    llm_batch(["TRUE", "UNCLEAR"], "validator")
+    as_(ALICE)
+    expect_error(lambda: c.add_cards(SRC, "world", "Geo", "First statement here\nSecond statement here"), "validators agreed")
+
+
 def test_wrong_verdict_count_is_llm_error():
     mod, c = fresh()
     llm_batch(["TRUE"])
