@@ -611,7 +611,7 @@ function track(hash, meta) {
       const ok = !BAD.has(name) && (state.sdk.isSuccessful ? state.sdk.isSuccessful(tx) : true);
       j.ok = ok;
       const why = BAD.has(name) ? name : (tx?.txExecutionResultName || name || "not successful");
-      j.error = ok ? "" : `${why.replace(/_/g, " ").toLowerCase()}${name === "LEADER_TIMEOUT" ? ": the source page was too slow, nothing was saved" : ""}`;
+      j.error = ok ? "" : `${why.replace(/_/g, " ").toLowerCase()}${name === "LEADER_TIMEOUT" ? ": the leader validator could not finish this round. Nothing was saved, so you can send it again" : ""}`;
       return ok ? tx : null;
     } catch (e) {
       j.ok = false; j.error = errText(e);
@@ -923,6 +923,8 @@ function finish(reason) {   // "cleared" | "caved" | "quit"
   $("rAcc").textContent = answered ? `${Math.round((100 * G.correct) / answered)}%` : "0%";
   const canSubmit = G.mode === "daily" && G.answers.length > 0 && !!CONTRACT;
   $("submitRun").hidden = !canSubmit;
+  $("submitRun").disabled = false;               // fresh run, fresh button
+  $("submitRun").textContent = "Submit score on-chain";
   $("rHint").textContent = G.mode === "daily"
     ? "Submitting sends your answers, not your score. The contract recomputes the score itself."
     : "Practice cards aren't on-chain yet, so practice scores stay on this device.";
