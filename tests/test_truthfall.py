@@ -232,6 +232,20 @@ def test_owner_can_move_and_retire_cards():
     assert c.get_owner() == ALICE.as_hex.lower()
 
 
+def test_owner_can_hand_over_curation():
+    mod, c = fresh()
+    seed(c, ("TRUE",), "world")
+    as_(BOB)
+    expect_error(lambda: c.set_owner(BOB), "only the owner")
+    as_(ALICE)
+    c.set_owner(BOB)
+    assert c.get_owner() == BOB.as_hex.lower()
+    expect_error(lambda: c.curate("0,", "retire"), "only the owner")   # ALICE no longer owner
+    as_(BOB)
+    c.curate("0,", "genlayer")
+    assert json.loads(c.get_card(0))["section"] == "genlayer"
+
+
 def test_retired_cards_do_not_score():
     mod, c = fresh()
     seed(c, ("UNCLEAR", "TRUE"))
