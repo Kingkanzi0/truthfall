@@ -104,6 +104,7 @@ Seed the decks from the app with **+ Cards**. Pick the section, then give one so
 | Item | Value |
 | --- | --- |
 | Network | Testnet Bradbury (chain 4221) |
-| Contract | _fill in after deploy_ |
-| Deploy tx | _fill in_ |
-| Live game | _fill in_ |
+| Contract | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` |
+| Deploy tx | `0x52e9458127d9e1adef94229a4a0282be0d4a89745b143aaf3aa5347fe33ec7d7` |
+| Deploy result | ACCEPTED, validators AGREE, FINISHED_WITH_RETURN (9 Oct 2026) |
+| Live game | https://kingkanzi0.github.io/truthfall/frontend/ |
