@@ -32,6 +32,7 @@ Everything else is deterministic Python. **Scores are recomputed on-chain** from
 | Appeal | same source page, re-read | `gl.vm.run_nondet_unsafe(leader_fn, validator_fn)` | the single verdict | the note |
 
 - Each validator re-runs the task itself and compares only decision fields. Free text never decides consensus.
+- For a batch, a validator accepts the leader's list when every verdict matches its own, or when the leader said UNCLEAR (that card is only retired, so it is safe). A TRUE/FALSE conflict, or a decisive leader verdict the validator could not confirm, rejects the batch.
 - Errors are classified as `[EXPECTED]`, `[TRANSIENT]` and `[LLM_ERROR]`. Validators agree on identical expected errors and on transient errors (for example, the page failed to load). LLM errors always disagree, which forces leader rotation.
 - Prompt-injection hardening: page text is wrapped in markers and the model is told to treat it as data only. Verdicts are normalised against a fixed set.
 - Storage uses flat `TreeMap`s only. There are no dataclass storage objects.
@@ -73,7 +74,7 @@ python3 tests/test_truthfall.py
 ```
 
 The offline tests cover:
-- fact-check batches, including UNCLEAR cards being retired and input validation
+- fact-check batches, including UNCLEAR cards being retired, a leader UNCLEAR being accepted as a retire, and input validation
 - a lying leader being rejected
 - notes being ignored by validators while verdicts are compared
 - transient load errors
@@ -97,14 +98,16 @@ Seed the decks from the app with **+ Cards**. Pick the section, then give one so
 ## Known limits
 
 - Card verdicts are public on-chain, so a determined player could look them up before playing. The daily order and on-chain scoring keep the leaderboard comparable. A commit-reveal deck is a possible future milestone.
-- Validators read the first 5,000 characters of a page, so statements should come from the top of the source.
+- Validators read the first 8,000 characters of a page, so statements should come from the top of the source.
+- Heavy websites can make the leader run out of time (`LeaderTimeout`). For the GenLayer section, cite the plain-text docs files (`https://raw.githubusercontent.com/genlayerlabs/genlayer-docs/main/pages/...mdx`). They carry the same text as docs.genlayer.com without menus or scripts.
 
 ## Deployment record
 
 | Item | Value |
 | --- | --- |
 | Network | Testnet Bradbury (chain 4221) |
-| Contract | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` |
-| Deploy tx | `0x52e9458127d9e1adef94229a4a0282be0d4a89745b143aaf3aa5347fe33ec7d7` |
+| Contract | `0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A` |
+| Deploy tx | `0xad1869904e9f9be9253dc72a7eb8b365f2d481f72f7d7fbf8fa3d957e2e2dd99` |
 | Deploy result | ACCEPTED, validators AGREE, FINISHED_WITH_RETURN (9 Oct 2026) |
+| Earlier contract | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` (retired before any cards: its first batch hit LeaderTimeout on the heavy docs site, which led to the plain-text sources and tolerant validator) |
 | Live game | https://kingkanzi0.github.io/truthfall/frontend/ |
