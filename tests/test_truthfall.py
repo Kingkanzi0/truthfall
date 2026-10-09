@@ -217,6 +217,21 @@ def test_sections_have_separate_decks_and_boards():
     expect_error(lambda: c.add_cards(SRC, "misc", "t", "A statement long enough"), "world or genlayer")
 
 
+def test_owner_can_move_and_retire_cards():
+    mod, c = fresh()                                   # deployed by ALICE (mock default sender)
+    seed(c, ("TRUE", "FALSE", "TRUE"), "world")        # ids 0,1,2
+    as_(BOB)
+    expect_error(lambda: c.curate("0", "genlayer"), "only the owner")
+    as_(ALICE)
+    c.curate("0, 1", "genlayer")
+    assert json.loads(c.get_card(0))["section"] == "genlayer"
+    c.curate("2", "retire")
+    assert json.loads(c.get_card(2))["verdict"] == "RETIRED"
+    expect_error(lambda: c.curate("9", "retire"), "does not exist")
+    expect_error(lambda: c.curate("0", "sports"), "world or genlayer")
+    assert c.get_owner() == ALICE.as_hex.lower()
+
+
 def test_retired_cards_do_not_score():
     mod, c = fresh()
     seed(c, ("UNCLEAR", "TRUE"))
