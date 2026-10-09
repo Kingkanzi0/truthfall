@@ -315,7 +315,7 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
     <div class="dlg-body">
       <div><label for="aSrc">Source page</label><input type="url" id="aSrc" required placeholder="https://en.wikipedia.org/wiki/Mount_Everest"></div>
       <div><label>Section</label><div class="tabs" role="radiogroup" id="aSection"><button type="button" data-sec="world" aria-pressed="true">🌍 World</button><button type="button" data-sec="genlayer" aria-pressed="false">GenLayer</button></div>
-        <p class="hint">GenLayer cards should cite docs.genlayer.com or genlayer.com.</p></div>
+        <p class="hint">For GenLayer cards, use the plain-text docs file (raw.githubusercontent.com/genlayerlabs/genlayer-docs/main/pages/…mdx). It has the same text as docs.genlayer.com and loads much faster for validators.</p></div>
       <div><label for="aTopic">Topic</label><input type="text" id="aTopic" maxlength="40" placeholder="Geography"></div>
       <div><label for="aText">Statements (1 to 5, one per line)</label><textarea id="aText" required placeholder="Mount Everest is the highest mountain above sea level&#10;Mount Everest is in the Andes"></textarea>
         <p class="hint">Write some true and some false. Validators read the page and decide each verdict; cards the page doesn't settle are left out.</p></div>
@@ -348,7 +348,7 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
 /* ------------------------------------------------------------------ *
  * Configuration. Override with ?contract=0x…&network=studionet
  * ------------------------------------------------------------------ */
-const DEFAULT_CONTRACT = "0xf45d7E8a654364751687c12b456D8aFAe30b7064";                 // paste the deployed Truthfall address here
+const DEFAULT_CONTRACT = "0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A";                 // paste the deployed Truthfall address here
 const DEFAULT_NETWORK = "testnetBradbury";
 const SDK_VERSION = "1.1.8";
 const params = new URLSearchParams(location.search);
@@ -610,7 +610,8 @@ function track(hash, meta) {
       const name = tx?.statusName || STATUS_BY_NUM[Number(tx?.status)] || "";
       const ok = !BAD.has(name) && (state.sdk.isSuccessful ? state.sdk.isSuccessful(tx) : true);
       j.ok = ok;
-      j.error = ok ? "" : `${(tx?.txExecutionResultName || name || "not successful").replace(/_/g, " ").toLowerCase()}`;
+      const why = BAD.has(name) ? name : (tx?.txExecutionResultName || name || "not successful");
+      j.error = ok ? "" : `${why.replace(/_/g, " ").toLowerCase()}${name === "LEADER_TIMEOUT" ? ": the source page was too slow, nothing was saved" : ""}`;
       return ok ? tx : null;
     } catch (e) {
       j.ok = false; j.error = errText(e);
