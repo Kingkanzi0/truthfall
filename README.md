@@ -118,8 +118,8 @@ genlayer write <contract> set_owner --args 0xYourBrowserWallet
 | Item | Value |
 | --- | --- |
 | Network | Testnet Bradbury (chain 4221) |
-| Contract | `0xF0236229896895F1564f34C9d5a4BF978cE2791b` |
-| Deploy tx | `0x18164958715433cf1275ebe23cd5b94ab308ea122a02d85cf5ec16c8ab32a0f6` |
+| Contract | `0x357771AC011E9428119eC61f063Ea2e71ff9Eb86` |
+| Deploy tx | `0x83e5ef2ecc6aa9631b959765ab3ecbe4e323466336f6c2c480b8e93fad7f1e8b` |
 | Deploy result | ACCEPTED, validators AGREE, FINISHED_WITH_RETURN (9 Oct 2026) |
-| Earlier test contracts | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` (first batch hit LeaderTimeout on the heavy docs site, which led to plain-text sources and the tolerant validator); `0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A` (worked, but had no way to fix a batch saved to the wrong section, which led to `curate`) |
+| Earlier test contracts | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` (first batch hit LeaderTimeout on the heavy docs site, which led to plain-text sources and the tolerant validator); `0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A` (worked, but had no way to fix a batch saved to the wrong section, which led to `curate`); `0xF0236229896895F1564f34C9d5a4BF978cE2791b` (owner was the CLI deployer with no handover, which led to `set_owner`) |
 | Live game | https://kingkanzi0.github.io/truthfall/frontend/ |
