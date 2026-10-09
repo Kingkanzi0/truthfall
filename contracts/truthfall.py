@@ -300,6 +300,14 @@ JSON only: {{"verdict": "TRUE|FALSE|UNCLEAR", "note": "one short sentence"}}"""
 				self.c_section[cid] = act
 		return json.dumps({"ids": ids, "action": act})
 
+	@gl.public.write
+	def set_owner(self, new_owner: Address) -> str:
+		# Owner only: hand curation to another wallet (e.g. from the CLI deployer to a browser wallet).
+		if gl.message.sender_address.as_hex.lower() != self.owner:
+			_fail("only the owner can change the owner")
+		self.owner = new_owner.as_hex.lower()
+		return self.owner
+
 	@gl.public.view
 	def get_owner(self) -> str:
 		return self.owner
