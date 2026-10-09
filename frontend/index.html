@@ -54,6 +54,15 @@ a { color: var(--gold); }
 .logo svg { width: 32px; height: 32px; }
 .logo b { font: 800 22px/1 var(--display); letter-spacing: .5px; }
 .logo b span { color: var(--gold); }
+@media (max-width: 480px) {
+  .top { gap: 6px; padding-inline: 12px; }
+  .top .btn.sm { padding-inline: 10px; }
+  #netLabel { display: none; }
+  .top:has(#curateBtn:not([hidden])) .logo b { display: none; }   /* owner on a phone: icon only */
+}
+@media (max-width: 380px) {
+  .logo b { display: none; }
+}
 .chip { font: 700 12px/1 var(--mono); color: var(--soft); border: 1px solid var(--line); border-radius: 99px; padding: 6px 10px; white-space: nowrap; }
 .chip::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--true); margin-right: 6px; vertical-align: 1px; }
 .btn { border: 0; border-radius: 12px; padding: 11px 16px; font-weight: 800; background: var(--gold); color: var(--gold-ink); white-space: nowrap; }
@@ -78,6 +87,13 @@ a { color: var(--gold); }
 .how { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 22px; }
 .how div { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 14px; padding: 12px; font-size: 13.5px; color: var(--soft); }
 .how b { display: block; color: var(--fg); font-size: 15px; margin-bottom: 2px; }
+.req { color: var(--gold); font-weight: 600; font-size: 12px; }
+.cur-list { max-height: 46vh; overflow: auto; display: grid; gap: 6px; }
+.cur-list label { display: grid; grid-template-columns: 20px 44px 70px minmax(0,1fr); gap: 8px; align-items: center; background: var(--ink-3); border-radius: 10px; padding: 8px 10px; font-size: 13.5px; font-weight: 500; cursor: pointer; }
+.cur-list .cid { font: 700 12px var(--mono); color: var(--soft); }
+.cur-list .csec { font: 700 11px var(--mono); text-transform: uppercase; }
+.cur-list .csec.genlayer { color: var(--gold); } .cur-list .csec.world { color: var(--true); }
+.cur-list .ret { opacity: .5; text-decoration: line-through; }
 .sections { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .sec { border-radius: 18px; padding: 16px; border: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .sec-btns { margin-top: auto; }
@@ -228,6 +244,7 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
     <b>TRUTH<span>FALL</span></b>
   </a>
   <span class="chip" id="netLabel">Bradbury testnet</span>
+  <button class="btn ghost sm" id="curateBtn" type="button" hidden>Curate</button>
   <button class="btn ghost sm" id="addBtn" type="button">+ Cards</button>
   <button class="btn sm" id="connectBtn" type="button">Connect wallet</button>
 </header>
@@ -314,8 +331,8 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
     <div class="dlg-head"><h3 id="addTitle">Add cards to the deck</h3><button class="close-x" value="cancel" formnovalidate aria-label="Close">&times;</button></div>
     <div class="dlg-body">
       <div><label for="aSrc">Source page</label><input type="url" id="aSrc" required placeholder="https://en.wikipedia.org/wiki/Mount_Everest"></div>
-      <div><label>Section</label><div class="tabs" role="radiogroup" id="aSection"><button type="button" data-sec="world" aria-pressed="true">🌍 World</button><button type="button" data-sec="genlayer" aria-pressed="false">GenLayer</button></div>
-        <p class="hint">For GenLayer cards, use the plain-text docs file (raw.githubusercontent.com/genlayerlabs/genlayer-docs/main/pages/…mdx). It has the same text as docs.genlayer.com and loads much faster for validators.</p></div>
+      <div><label>Section <span class="req">(pick one)</span></label><div class="tabs" role="radiogroup" id="aSection"><button type="button" data-sec="world" aria-pressed="false">🌍 World</button><button type="button" data-sec="genlayer" aria-pressed="false">GenLayer</button></div>
+        <p class="hint">For GenLayer cards, use the plain-text docs file (cdn.jsdelivr.net/gh/genlayerlabs/genlayer-docs@main/pages/…mdx). It has the same text as docs.genlayer.com and loads much faster for validators.</p></div>
       <div><label for="aTopic">Topic</label><input type="text" id="aTopic" maxlength="40" placeholder="Geography"></div>
       <div><label for="aText">Statements (1 to 5, one per line)</label><textarea id="aText" required placeholder="Mount Everest is the highest mountain above sea level&#10;Mount Everest is in the Andes"></textarea>
         <p class="hint">Write some true and some false. Validators read the page and decide each verdict; cards the page doesn't settle are left out.</p></div>
@@ -336,6 +353,19 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
   </form>
 </dialog>
 
+<dialog id="curateDlg" aria-labelledby="curateTitle">
+  <div class="dlg-head"><h3 id="curateTitle">Curate cards</h3><button class="close-x" type="button" data-close-curate aria-label="Close">&times;</button></div>
+  <div class="dlg-body">
+    <p class="hint" style="margin:0">Only the contract owner sees this. Tick cards, then move them to the other section or retire them from play. Every change is an on-chain transaction anyone can audit.</p>
+    <div class="cur-list" id="curList"></div>
+    <div class="actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="btn" type="button" data-cur="world">Move to 🌍 World</button>
+      <button class="btn" type="button" data-cur="genlayer">Move to GenLayer</button>
+      <button class="btn ghost" type="button" data-cur="retire">Retire</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="walletDlg" aria-labelledby="walletTitle">
   <div class="dlg-head"><h3 id="walletTitle">Choose a wallet</h3><button class="close-x" type="button" data-cancel aria-label="Close">&times;</button></div>
   <div class="dlg-body"><div id="walletList" class="wallet-list"></div><p class="hint">Pick the wallet that holds your Bradbury GEN. Tap your address later to switch.</p></div>
@@ -348,7 +378,7 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
 /* ------------------------------------------------------------------ *
  * Configuration. Override with ?contract=0x…&network=studionet
  * ------------------------------------------------------------------ */
-const DEFAULT_CONTRACT = "0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A";                 // paste the deployed Truthfall address here
+const DEFAULT_CONTRACT = "0xF0236229896895F1564f34C9d5a4BF978cE2791b";                 // paste the deployed Truthfall address here
 const DEFAULT_NETWORK = "testnetBradbury";
 const SDK_VERSION = "1.1.8";
 const params = new URLSearchParams(location.search);
@@ -744,6 +774,7 @@ async function loadCards() {
     if (all.length >= page.total || !page.cards.length) break;
   }
   state.cards = all;
+  if (state.owner == null) { try { state.owner = String(await read("get_owner", [])).toLowerCase(); } catch { state.owner = ""; } }
 }
 async function loadBoard() {
   if (!CONTRACT || !state.reader) return [];
@@ -772,6 +803,7 @@ async function refreshMenu() {
   $("dailyNote").textContent = `Daily decks use the same order for everyone, so scores are comparable.${nw + ng < 10 ? ' Few verified cards so far: add some with "+ Cards", or warm up in Practice.' : ""}`;
   document.querySelectorAll('[data-mode="daily"]').forEach((b) => { b.disabled = !activeCards(b.dataset.play).length; });
   const me = state.account?.toLowerCase();
+  $("curateBtn").hidden = !(me && state.owner && me === state.owner);
   $("leaderboard").innerHTML = board.length
     ? board.map((e, i) => `<li class="${e.who === me ? "me" : ""}"><span class="rk">#${i + 1}</span><span class="who">${esc(short(e.who))}${e.who === me ? " (you)" : ""}</span><b class="num">${e.score}</b></li>`).join("")
     : `<li class="empty">No scores yet today. Be the first.</li>`;
@@ -782,6 +814,7 @@ function onWallet() { loadPlayer().then(refreshMenu); }
 async function onTxDone(j) {
   if (j.kind === "add" && j.ok) toast("Cards checked by validators. They are in the deck now.", "ok");
   if (j.kind === "appeal" && j.ok) toast("Appeal decided. Open the card list to see the verdict.", "ok");
+  if (j.kind === "curate" && j.ok) toast("Cards updated.", "ok");
   await refreshMenu();
 }
 
@@ -1028,13 +1061,32 @@ $("addForm").addEventListener("submit", async (e) => {
   const lines = $("aText").value.split("\n").map((s) => s.trim()).filter(Boolean);
   if (lines.length < 1 || lines.length > 5) return toast("Write 1 to 5 statements, one per line.", "err");
   if (lines.some((s) => s.length < 12 || s.length > 160)) return toast("Each statement must be 12 to 160 characters.", "err");
+  const sec = document.querySelector("[data-sec][aria-pressed='true']")?.dataset.sec;
+  if (!sec) return toast("Pick a section first: World or GenLayer.", "err");
   $("addSubmit").disabled = true;
-  const sec = document.querySelector("[data-sec][aria-pressed='true']")?.dataset.sec || "world";
-  const job = await send("add_cards", [$("aSrc").value.trim(), sec, $("aTopic").value.trim(), lines.join("\n")], { kind: "add", title: `Fact-check ${lines.length} card${lines.length > 1 ? "s" : ""}` });
+  const job = await send("add_cards", [$("aSrc").value.trim(), sec, $("aTopic").value.trim(), lines.join("\n")], { kind: "add", title: `Fact-check ${lines.length} ${SECTION_NAME[sec]} card${lines.length > 1 ? "s" : ""}` });
   $("addSubmit").disabled = false;
   if (!job) return;
   $("addDlg").close(); $("addForm").reset();
   toast("Signed. Validators are reading the page now.", "ok");
+});
+
+function drawCurate() {
+  $("curList").innerHTML = state.cards.length ? state.cards.map((c) => `<label><input type="checkbox" data-cid="${c.id}">
+      <span class="cid">#${c.id}</span><span class="csec ${esc(c.section)}">${esc(SECTION_NAME[c.section] || c.section)}</span>
+      <span class="${c.verdict === "RETIRED" ? "ret" : ""}">${esc(c.text)} <small style="color:var(--soft)">· ${esc(c.verdict)}</small></span></label>`).join("")
+    : `<p class="empty">No cards yet.</p>`;
+}
+$("curateBtn").addEventListener("click", async () => { await loadCards().catch(() => {}); drawCurate(); $("curateDlg").showModal(); });
+$("curateDlg").addEventListener("click", async (e) => {
+  if (e.target.closest("[data-close-curate]")) return $("curateDlg").close();
+  const b = e.target.closest("[data-cur]");
+  if (!b) return;
+  const ids = [...document.querySelectorAll("#curList [data-cid]:checked")].map((x) => x.dataset.cid);
+  if (!ids.length) return toast("Tick at least one card.", "err");
+  const act = b.dataset.cur, label = act === "retire" ? "Retire" : `Move to ${SECTION_NAME[act]}`;
+  const job = await send("curate", [ids.join(","), act], { kind: "curate", title: `${label} · ${ids.length} card${ids.length > 1 ? "s" : ""}` });
+  if (job) $("curateDlg").close();
 });
 
 let appealId = null;
