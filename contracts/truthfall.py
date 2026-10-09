@@ -147,10 +147,12 @@ class Truthfall(gl.Contract):
 	board: TreeMap[str, str]          # "day:section" -> JSON top list
 	wins: TreeMap[str, u32]           # addr -> appeals won
 	runs: u256
+	owner: str                        # deployer: may move or retire cards (curation)
 
 	def __init__(self):
 		self.card_count = u256(0)
 		self.runs = u256(0)
+		self.owner = gl.message.sender_address.as_hex.lower()
 
 	@gl.public.write
 	def add_cards(self, source_url: str, section: str, topic: str, statements: str) -> str:
@@ -276,6 +278,31 @@ JSON only: {{"verdict": "TRUE|FALSE|UNCLEAR", "note": "one short sentence"}}"""
 			top.sort(key=lambda e: (-e["score"], -e["correct"], e["who"]))
 			self.board[d] = json.dumps(top[:BOARD_SIZE])
 		return json.dumps(res)
+
+	@gl.public.write
+	def curate(self, card_ids: str, action: str) -> str:
+		# Owner only. action: "world" / "genlayer" moves cards, "retire" removes them from play.
+		if gl.message.sender_address.as_hex.lower() != self.owner:
+			_fail("only the owner can curate cards")
+		act = action.strip().lower()
+		if act != "retire":
+			act = _section(act)
+		ids = [int(x) for x in card_ids.replace(" ", "").split(",") if x.isdigit()]
+		if not 1 <= len(ids) <= 50:
+			_fail("give 1 to 50 card ids, like 5,6,7")
+		for i in ids:
+			cid = u256(i)
+			if i >= int(self.card_count):
+				_fail(f"card {i} does not exist")
+			if act == "retire":
+				self.c_verdict[cid] = RETIRED
+			else:
+				self.c_section[cid] = act
+		return json.dumps({"ids": ids, "action": act})
+
+	@gl.public.view
+	def get_owner(self) -> str:
+		return self.owner
 
 	@gl.public.view
 	def get_day(self) -> int:
