@@ -57,7 +57,8 @@ Everything else is deterministic Python. **Scores are recomputed on-chain** from
 | `get_leaderboard(day, section)` | view | JSON top 10 for that section |
 | `get_player(day, user)` | view | best score per section that day and appeals won |
 | `curate(card_ids, action)` | write, owner only | `card_ids` like `5,6,7`; `action` is `world` or `genlayer` (move) or `retire` |
-| `get_owner()` | view | the deployer address |
+| `set_owner(new_owner)` | write, owner only | hands curation to another wallet |
+| `get_owner()` | view | current curator address (the deployer until handed over) |
 | `get_day()` / `get_card_count()` | view | int |
 
 ## Repository layout
@@ -82,7 +83,7 @@ The offline tests cover:
 - transient load errors
 - deterministic scoring and the leaderboard
 - separate decks, scores and leaderboards for the two sections
-- owner-only curation (move between sections, retire)
+- owner-only curation (move between sections, retire) and owner handover
 - appeals that win, lose or retire a card, including the deposit refund
 
 The mock is not GenVM, so behaviour must also be confirmed live on Bradbury.
@@ -100,7 +101,11 @@ Seed the decks from the app with **+ Cards**. Pick the section, then give one so
 
 ## Curation
 
-Anyone can add cards, so the deployer can tidy the deck with `curate`: move cards that went into the wrong section, or retire spam and outdated cards. Curation cannot change a verdict (only validators do that, through `add_cards` and `appeal`), and every change is a public transaction. In the app, the **Curate** button appears only for the owner's wallet.
+Anyone can add cards, so the deployer can tidy the deck with `curate`: move cards that went into the wrong section, or retire spam and outdated cards. Curation cannot change a verdict (only validators do that, through `add_cards` and `appeal`), and every change is a public transaction. In the app, the **Curate** button appears only for the owner's wallet. The CLI account that deploys becomes the first owner; `set_owner` hands curation to a browser wallet:
+
+```
+genlayer write <contract> set_owner --args 0xYourBrowserWallet
+```
 
 ## Known limits
 
