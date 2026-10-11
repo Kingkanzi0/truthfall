@@ -150,8 +150,8 @@ The appeal demo uses `demo/outdated-staking-note.md`, a deliberately outdated te
 | Item | Value |
 | --- | --- |
 | Network | Testnet Bradbury (chain 4221) |
-| Contract | `0x357771AC011E9428119eC61f063Ea2e71ff9Eb86` |
-| Deploy tx | `0x83e5ef2ecc6aa9631b959765ab3ecbe4e323466336f6c2c480b8e93fad7f1e8b` |
+| Contract | `0xEBA590341D0C04BE889bb1647e9c5B867Ea9c80f` |
+| Deploy tx | `0x7f93af146057d7d29cb2bf8a0e4a280dbae0747b0d8f7e09b77fffc538fab8a5` |
 | Deploy result | ACCEPTED, validators AGREE, FINISHED_WITH_RETURN (9 Oct 2026) |
-| Earlier test contracts | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` (first batch hit LeaderTimeout on the heavy docs site, which led to plain-text sources and the tolerant validator); `0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A` (worked, but had no way to fix a batch saved to the wrong section, which led to `curate`); `0xF0236229896895F1564f34C9d5a4BF978cE2791b` (owner was the CLI deployer with no handover, which led to `set_owner`) |
+| Earlier test contracts | `0xf45d7E8a654364751687c12b456D8aFAe30b7064` (first batch hit LeaderTimeout on the heavy docs site, which led to plain-text sources and the tolerant validator); `0xAa9312bA7aCdEbB38FD44248A606eC33Ee1C6d9A` (worked, but had no way to fix a batch saved to the wrong section, which led to `curate`); `0xF0236229896895F1564f34C9d5a4BF978cE2791b` (owner was the CLI deployer with no handover, which led to `set_owner`); `0x357771AC011E9428119eC61f063Ea2e71ff9Eb86` (first reviewed version; steward feedback led to the contract-built deck, replayed runs, attempt limits and evidence appeals) |
 | Live game | https://kingkanzi0.github.io/truthfall/frontend/ |
