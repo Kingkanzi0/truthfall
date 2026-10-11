@@ -20,7 +20,7 @@ Each section has its own daily deck, its own leaderboard and its own best score 
 A normal smart contract cannot read a web page, so a quiz game has to trust whoever wrote the answers. In Truthfall, the contract makes only two judgments under GenLayer consensus:
 
 1. **Fact-check** (`add_cards`). Anyone can submit up to five statements with one source page, for one section. Validators each open the page with `gl.nondet.web.render`, decide TRUE, FALSE or UNCLEAR for every statement, and must agree on the full list of verdicts. Cards the page does not settle are retired and never reach the deck.
-2. **Appeal** (`appeal`). A player who thinks a verdict is wrong deposits 0.1 GEN and gives a reason. Validators re-read the source independently. If they agree the verdict was wrong, the card is fixed (or retired) and the deposit is refunded with `emit_transfer`. This mirrors GenLayer's own appeal process inside a game.
+2. **Appeal** (`appeal`). A player who thinks a verdict is wrong deposits 0.1 GEN, gives a reason and can attach **new evidence** (a second page). Validators re-read the card's source and the evidence independently. The outcome is fixed code: if both sources agree, that verdict stands; if one is unclear, the other decides; if they **conflict**, the card is not settled and is retired. If the outcome differs from the current verdict, the card is updated and the deposit is **refunded** with `emit_transfer`; otherwise the deposit stays with the contract. This mirrors GenLayer's own appeal process inside a game.
 
 Everything else is deterministic Python. **Scores are recomputed on-chain** from the player's answers (`submit_run`), so the leaderboard cannot be typed in by hand.
 
@@ -32,6 +32,7 @@ Everything else is deterministic Python. **Scores are recomputed on-chain** from
 | Appeal | same source page, re-read | `gl.vm.run_nondet_unsafe(leader_fn, validator_fn)` | the single verdict | the note |
 
 - Each validator re-runs the task itself and compares only decision fields. Free text never decides consensus.
+- For an appeal, validators compare the **outcome** (`appeal_outcome` of the per-source verdicts), so a leader cannot fake a winning appeal by misreporting the evidence (`test_adversarial_leader_cannot_fake_a_winning_appeal`). Evidence that fails to load counts as UNCLEAR.
 - For a batch, a validator accepts the leader's list when every verdict matches its own, or when the leader said UNCLEAR (that card is only retired, so it is safe). A TRUE/FALSE conflict, or a decisive leader verdict the validator could not confirm, rejects the batch.
 - Errors are classified as `[EXPECTED]`, `[TRANSIENT]` and `[LLM_ERROR]`. Validators agree on identical expected errors and on transient errors (for example, the page failed to load). LLM errors always disagree, which forces leader rotation.
 - Prompt-injection hardening: page text is wrapped in markers and the model is told to treat it as data only. Verdicts are normalised against a fixed set.
@@ -42,7 +43,9 @@ Everything else is deterministic Python. **Scores are recomputed on-chain** from
 - Correct answer: 100 points × multiplier. The multiplier rises by 1 every 5 correct answers in a row, up to ×5.
 - A wrong answer or a missed card resets the streak and adds a crack to the floor. Six cracks end the run.
 - Every 5-in-a-row clears one crack.
-- Each section's daily deck uses the same shuffled order for every player, seeded by the day number.
+- **The contract builds the daily deck** (`get_deck`): the section's cards created before 00:00 UTC that day (newest 60), shuffled with mulberry32 seeded by the day. The game fetches this list, so everyone plays the same cards in the same order. Cards added today join tomorrow's deck. Python and JavaScript produce bit-identical shuffles (tested against values from Node).
+- **The contract replays the run** (`submit_run`): the player sends one pick per deck position (`T`, `F`, `-` for a missed card, `x` for a retired card that was skipped). The contract applies the same rules as the game, in deck order, and stops at the sixth crack; picks after a cave-in are ignored.
+- Three scored attempts per player, per section, per day. The best one counts.
 - Practice mode uses a built-in deck (34 World cards, 25 GenLayer cards) that is not on-chain, so it works offline and isn't scored on-chain.
 
 ## Contract API — `contracts/truthfall.py`
@@ -50,12 +53,13 @@ Everything else is deterministic Python. **Scores are recomputed on-chain** from
 | Method | Type | Notes |
 | --- | --- | --- |
 | `add_cards(source_url, section, topic, statements)` | write | section is `world` or `genlayer`; 1–5 statements, one per line, 12–160 characters each; returns ids and verdicts |
-| `appeal(card_id, reason)` | write, payable | 0.1 GEN deposit, refunded if the appeal wins |
-| `submit_run(day, section, answers)` | write | answers like `12:T,7:F`; only cards in that section count; for today or yesterday; keeps your best score |
-| `get_cards(offset, limit)` | view | JSON, includes verdict, validator note, appeals and flips |
+| `appeal(card_id, reason, evidence_url)` | write, payable | 0.1 GEN deposit; `evidence_url` optional (empty string for none); refunded if the outcome changes |
+| `submit_run(day, section, picks)` | write | picks like `TF-TxF`, one per deck position; for today or yesterday; 3 attempts per day per section; keeps your best score |
+| `get_deck(day, section)` | view | JSON list of card ids in play order |
+| `get_cards(offset, limit)` | view | JSON, includes verdict, validator note, appeals, flips and `created_at` |
 | `get_card(card_id)` | view | JSON |
 | `get_leaderboard(day, section)` | view | JSON top 10 for that section |
-| `get_player(day, user)` | view | best score per section that day and appeals won |
+| `get_player(day, user)` | view | best score and attempts left per section that day, appeals won |
 | `curate(card_ids, action)` | write, owner only | `card_ids` like `5,6,7`; `action` is `world` or `genlayer` (move) or `retire` |
 | `set_owner(new_owner)` | write, owner only | hands curation to another wallet |
 | `get_owner()` | view | current curator address (the deployer until handed over) |
@@ -81,10 +85,14 @@ The offline tests cover:
 - a lying leader being rejected
 - notes being ignored by validators while verdicts are compared
 - transient load errors
-- deterministic scoring and the leaderboard
+- the deck: contract-side shuffle matching the game's JavaScript, cards joining the next UTC day
+- the game rules replayed on-chain: multiplier, cracks, crack clearing, cave-in, misses, skipped retired cards
+- adversarial runs: right answers sent in card-id order instead of deck order, too many or malformed picks, answers after a cave-in, more than 3 attempts, old days
+- adversarial appeals: a leader faking a winning appeal, evidence equal to the source, non-https evidence, unreadable evidence
+- legitimate runs and the leaderboard
 - separate decks, scores and leaderboards for the two sections
 - owner-only curation (move between sections, retire) and owner handover
-- appeals that win, lose or retire a card, including the deposit refund
+- appeals that win, lose or retire a card, with and without new evidence, including the deposit refund
 
 The mock is not GenVM, so behaviour must also be confirmed live on Bradbury.
 
@@ -107,11 +115,35 @@ Anyone can add cards, so the deployer can tidy the deck with `curate`: move card
 genlayer write <contract> set_owner --args 0xYourBrowserWallet
 ```
 
+## What the leaderboard guarantees (and what it does not)
+
+**Guaranteed by the contract**
+- A score cannot be typed in. It is computed by the contract from the player's picks.
+- Picks are scored against the contract's own daily deck, in its order, with the game's rules, including the cave-in at six cracks.
+- The deck is fixed at 00:00 UTC, so cards added or appealed during the day cannot be used to reshape it for one player (an appeal can retire a card, which is then skipped for everyone).
+- Three attempts per player, per section, per day; the best one counts. One entry per wallet on each board.
+
+**Not guaranteed**
+- **Verdicts are public on-chain**, as all contract state is. A player who reads them can answer correctly without knowing the facts. The board therefore measures accuracy and streaks for honest play; it is a learning game with no prizes, and it should not be used for anything of value.
+- **Reaction time is not verified.** The contract cannot see how fast someone swiped.
+- Hiding verdicts until a run ends would need a commit-reveal deck. That is a planned milestone.
+
 ## Known limits
 
-- Card verdicts are public on-chain, so a determined player could look them up before playing. The daily order and on-chain scoring keep the leaderboard comparable. A commit-reveal deck is a possible future milestone.
 - Validators read the first 8,000 characters of a page, so statements should come from the top of the source.
 - Heavy websites can make the leader run out of time (`LeaderTimeout`). For the GenLayer section, cite the plain-text docs files through jsDelivr (`https://cdn.jsdelivr.net/gh/genlayerlabs/genlayer-docs@main/pages/...mdx`); raw.githubusercontent.com also works but was throttled during seeding. They carry the same text as docs.genlayer.com without menus or scripts.
+
+## Live proof (Bradbury)
+
+The README lists transaction links for: a card batch accepted, an evidence appeal that retired a card and refunded 0.1 GEN, and a legitimate daily run scored by the contract. Fill in after running them.
+
+The appeal demo uses `demo/outdated-staking-note.md`, a deliberately outdated test fixture in this repo. A card checked against it says "The minimum delegation is 10 GEN" is TRUE; an appeal that adds the official staking docs (42 GEN) as evidence makes the sources conflict, which retires the card and refunds the deposit.
+
+| Proof | Transaction |
+| --- | --- |
+| Card batch accepted | _fill in_ |
+| Evidence appeal retired a card, 0.1 GEN refunded | _fill in_ |
+| Daily run submitted and scored | _fill in_ |
 
 ## Deployment record
 
