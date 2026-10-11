@@ -107,6 +107,7 @@ a { color: var(--gold); }
 .gl-ic { font: 800 15px var(--mono); color: var(--gold-ink); background: var(--gold); }
 .sec-n { margin: 0; color: var(--soft); font-size: 13.5px; }
 .sec-n b { color: var(--fg); font-size: 16px; }
+.sec-n .wait { display: block; color: var(--gold); font-size: 12.5px; margin-top: 2px; }
 .sec-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .tabs { display: flex; gap: 6px; }
 .tabs button { flex: 1; border: 1px solid var(--line); background: var(--ink-3); color: var(--soft); border-radius: 10px; padding: 8px 10px; font-weight: 800; }
@@ -257,12 +258,12 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
       <div class="sections">
         <article class="sec world">
           <div class="sec-top"><span class="sec-ic" aria-hidden="true">🌍</span><div><b>World</b><small>Capitals, space, science, football, crypto</small></div></div>
-          <p class="sec-n"><b class="num" id="nWorld">–</b> verified cards today</p>
+          <p class="sec-n"><b class="num" id="nWorld">–</b> cards in today's deck <span class="wait" id="wWorld"></span></p>
           <div class="sec-btns"><button class="btn" type="button" data-play="world" data-mode="daily">Play daily</button><button class="btn ghost" type="button" data-play="world" data-mode="practice">Practice</button></div>
         </article>
         <article class="sec gl">
           <div class="sec-top"><span class="sec-ic gl-ic" aria-hidden="true">GL</span><div><b>GenLayer</b><small>Validators, appeals, staking, the Equivalence Principle</small></div></div>
-          <p class="sec-n"><b class="num" id="nGenlayer">–</b> verified cards today</p>
+          <p class="sec-n"><b class="num" id="nGenlayer">–</b> cards in today's deck <span class="wait" id="wGenlayer"></span></p>
           <div class="sec-btns"><button class="btn" type="button" data-play="genlayer" data-mode="daily">Play daily</button><button class="btn ghost" type="button" data-play="genlayer" data-mode="practice">Practice</button></div>
         </article>
       </div>
@@ -347,7 +348,8 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
     <div class="dlg-body">
       <p id="appealCard" style="margin:0;font-weight:700"></p>
       <div><label for="apReason">Why is the verdict wrong?</label><input type="text" id="apReason" maxlength="200" placeholder="The page says the opposite in the first paragraph"></div>
-      <p class="hint">You deposit 0.1 GEN. Validators re-read the source page on their own. If they agree the verdict was wrong, the card is fixed and your deposit comes back.</p>
+      <div><label for="apEvidence">New evidence (optional)</label><input type="url" id="apEvidence" maxlength="400" placeholder="https://a better or newer source"></div>
+      <p class="hint">You deposit 0.1 GEN. Validators re-read the card's source and your evidence page. If the verdict changes (or the two sources conflict, which retires the card), your deposit comes back.</p>
       <div class="actions" style="justify-content:flex-start"><button class="btn" type="submit" value="default" id="apSubmit">Appeal for 0.1 GEN</button><button class="btn ghost" value="cancel" formnovalidate type="submit">Cancel</button></div>
     </div>
   </form>
@@ -378,7 +380,7 @@ input:focus, textarea:focus { border-color: var(--gold); outline: none; }
 /* ------------------------------------------------------------------ *
  * Configuration. Override with ?contract=0x…&network=studionet
  * ------------------------------------------------------------------ */
-const DEFAULT_CONTRACT = "0x357771AC011E9428119eC61f063Ea2e71ff9Eb86";                 // paste the deployed Truthfall address here
+const DEFAULT_CONTRACT = "0xEBA590341D0C04BE889bb1647e9c5B867Ea9c80f";                 // paste the deployed Truthfall address here
 const DEFAULT_NETWORK = "testnetBradbury";
 const SDK_VERSION = "1.1.8";
 const params = new URLSearchParams(location.search);
@@ -560,7 +562,8 @@ const JOBS_KEY = "truthfall.jobs";
 const jobs = new Map();               // hash -> job
 const stagesFor = (kind) => ["Signed in your wallet", "Waiting in the network queue",
   kind === "add" || kind === "appeal" ? "Leader validator reads the source page" : "Leader validator runs it",
-  kind === "add" || kind === "appeal" ? "Other validators re-check on their own" : "Other validators check it", "Consensus reached"];
+  kind === "add" || kind === "appeal" ? "Other validators re-check on their own" : "Other validators check it", "Accepted, and the contract ran without error",
+  "Finalized after the appeal window"];
 const STAGE_OF = { PENDING: 1, UNINITIALIZED: 1, PROPOSING: 2, LEADER_REVEALING: 2, COMMITTING: 3, REVEALING: 3,
   APPEAL_COMMITTING: 3, APPEAL_REVEALING: 3, ACCEPTED: 5, FINALIZED: 5, READY_TO_FINALIZE: 5 };
 const STATUS_BY_NUM = { 0: "UNINITIALIZED", 1: "PENDING", 2: "PROPOSING", 3: "COMMITTING", 4: "REVEALING", 5: "ACCEPTED",
@@ -569,7 +572,7 @@ const STATUS_BY_NUM = { 0: "UNINITIALIZED", 1: "PENDING", 2: "PROPOSING", 3: "CO
 const BAD = new Set(["UNDETERMINED", "CANCELED", "VALIDATORS_TIMEOUT", "LEADER_TIMEOUT"]);
 
 function saveJobs() {
-  const keep = [...jobs.values()].filter((j) => !j.final).map(({ hash, kind, title, fixture, args, started }) => ({ hash, kind, title, fixture, args, started }));
+  const keep = [...jobs.values()].filter((j) => !j.final || (j.ok && !j.finalized)).map(({ hash, kind, title, fixture, args, started }) => ({ hash, kind, title, fixture, args, started }));
   localSet(JOBS_KEY, JSON.stringify(keep));
 }
 function mmss(sec) { sec = Math.max(0, Math.floor(sec)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`; }
@@ -582,16 +585,15 @@ function drawJob(j) {
     $("tray").prepend(el);
   }
   const link = explorerTx(j.hash);
-  const stage = j.final ? (j.ok ? 5 : j.stage) : j.stage;
+  const stage = j.final ? (j.ok ? (j.finalized ? 6 : 5) : j.stage) : j.stage;
   const steps = stagesFor(j.kind).map((label, i) => {
-    let cls = i < stage ? "done" : i === stage && !j.final ? "now" : "";
+    let cls = i < stage ? "done" : i === stage && (!j.final || j.ok) ? "now" : "";
     if (j.final && !j.ok && i === stage) cls = "bad";
-    if (j.final && j.ok) cls = "done";
     return `<li class="${cls}">${label}</li>`;
   }).join("");
-  const secs = ((j.ended || Date.now()) - j.started) / 1000;
+  const secs = ((j.ended || Date.now()) - j.started) / 1000;   // time to acceptance
   const foot = j.final
-    ? (j.ok ? `Done in ${mmss(secs)}` : esc(j.error || "Not accepted"))
+    ? (j.ok ? (j.finalized ? `Finalized. Accepted in ${mmss(((j.ended || Date.now()) - j.started) / 1000)}` : `Accepted in ${mmss(secs)}. Finalizing after the appeal window.`) : esc(j.error || "Not accepted"))
     : (j.stage <= 1 && secs > 90 ? "Bradbury is busy. It runs after earlier transactions on this contract."
       : esc(j.statusName ? j.statusName.replace(/_/g, " ").toLowerCase() : "waiting for the network"));
   el.className = `job ${j.final ? (j.ok ? "ok" : "fail") : ""}${j.min ? " min" : ""}`;
@@ -638,9 +640,15 @@ function track(hash, meta) {
     try {
       const tx = await state.reader.waitForTransactionReceipt({ hash, waitUntil: "decided", interval: 3000, retries: 400 });
       const name = tx?.statusName || STATUS_BY_NUM[Number(tx?.status)] || "";
-      const ok = !BAD.has(name) && (state.sdk.isSuccessful ? state.sdk.isSuccessful(tx) : true);
+      const exec = String(tx?.txExecutionResultName || "");
+      // Success means consensus accepted it AND GenVM finished the contract call without an error.
+      const executed = exec ? exec === "FINISHED_WITH_RETURN" : (state.sdk.isSuccessful ? state.sdk.isSuccessful(tx) : true);
+      const ok = (name === "ACCEPTED" || name === "FINALIZED") && executed;
       j.ok = ok;
-      const why = BAD.has(name) ? name : (tx?.txExecutionResultName || name || "not successful");
+      j.finalized = name === "FINALIZED";
+      const why = BAD.has(name) ? name
+        : exec === "FINISHED_WITH_ERROR" ? "the contract rejected this call (nothing changed); check the inputs and try again"
+        : (exec || name || "not successful");
       j.error = ok ? "" : `${why.replace(/_/g, " ").toLowerCase()}${name === "LEADER_TIMEOUT" ? ": the leader validator could not finish this round. Nothing was saved, so you can send it again" : ""}`;
       return ok ? tx : null;
     } catch (e) {
@@ -650,11 +658,30 @@ function track(hash, meta) {
       j.final = true; j.ended = Date.now();
       saveJobs();
       drawJob(j);
-      setTimeout(() => { if (jobs.get(hash)?.ok) { document.getElementById(`job-${hash}`)?.remove(); jobs.delete(hash); } }, 12000);
+      if (j.ok) {
+        setTimeout(() => { if (!j.finalized) { j.min = true; drawJob(j); } }, 12000);
+        watchFinality(j);
+      }
       await onTxDone(j);
     }
   })();
   return j;
+}
+
+async function watchFinality(j) {
+  // Accepted results can still be appealed; keep watching until the protocol finalizes them.
+  for (let n = 0; n < 240 && !j.finalized; n++) {
+    try {
+      const tx = await state.reader.getTransaction({ hash: j.hash });
+      const name = tx?.statusName || STATUS_BY_NUM[Number(tx?.status)] || "";
+      if (name === "FINALIZED") j.finalized = true;
+      else if (BAD.has(name) || name === "CANCELED") { j.ok = false; j.error = `changed to ${name.toLowerCase()} during the appeal window`; }
+    } catch { /* keep trying */ }
+    if (!j.finalized) await new Promise((r) => setTimeout(r, 15000));
+  }
+  saveJobs();
+  drawJob(j);
+  if (j.finalized) setTimeout(() => { document.getElementById(`job-${j.hash}`)?.remove(); jobs.delete(j.hash); saveJobs(); }, 15000);
 }
 
 function resumeJobs() {
@@ -761,6 +788,10 @@ function shuffle(list, rand) {
 }
 const activeCards = (sec) => state.cards.filter((c) => (c.verdict === "TRUE" || c.verdict === "FALSE") && (!sec || c.section === sec));
 let lbSection = "world";
+const isActive = (c) => c && (c.verdict === "TRUE" || c.verdict === "FALSE");
+// Today's deck comes from the contract (fixed at 00:00 UTC, contract-side shuffle): [{card, pos}]
+const dailyDeck = (sec) => (state.decks?.[sec] || []).map((id, pos) => ({ card: state.byId?.get(id), pos })).filter((x) => isActive(x.card));
+const waitingTomorrow = (sec) => Math.max(0, activeCards(sec).length - dailyDeck(sec).length);
 
 /* ------------------------------------------------------------------ *
  * Chain data
@@ -774,6 +805,11 @@ async function loadCards() {
     if (all.length >= page.total || !page.cards.length) break;
   }
   state.cards = all;
+  state.byId = new Map(all.map((c) => [c.id, c]));
+  state.decks = {};
+  for (const sec of ["world", "genlayer"]) {
+    try { state.decks[sec] = JSON.parse(await read("get_deck", [state.day, sec])); } catch { state.decks[sec] = []; }
+  }
   if (state.owner == null) { try { state.owner = String(await read("get_owner", [])).toLowerCase(); } catch { state.owner = ""; } }
 }
 async function loadBoard() {
@@ -794,14 +830,16 @@ async function refreshMenu() {
   }
   try { await loadCards(); } catch (e) { $("dailyNote").textContent = `Couldn't load cards: ${errText(e)}`; }
   const [board] = await Promise.all([loadBoard(), loadPlayer()]);
-  const nw = activeCards("world").length, ng = activeCards("genlayer").length, n = activeCards(lbSection).length;
+  const nw = dailyDeck("world").length, ng = dailyDeck("genlayer").length, n = dailyDeck(lbSection).length;
   $("nWorld").textContent = nw; $("nGenlayer").textContent = ng;
+  $("wWorld").textContent = waitingTomorrow("world") ? `+${waitingTomorrow("world")} join at 00:00 UTC` : "";
+  $("wGenlayer").textContent = waitingTomorrow("genlayer") ? `+${waitingTomorrow("genlayer")} join at 00:00 UTC` : "";
   $("stCards").textContent = n;
   $("stBest").textContent = state.player ? state.player.best[lbSection] : "–";
   $("stWins").textContent = state.player ? state.player.appeals_won : "–";
   $("dayLabel").textContent = `day ${state.day}`;
-  $("dailyNote").textContent = `Daily decks use the same order for everyone, so scores are comparable.${nw + ng < 10 ? ' Few verified cards so far: add some with "+ Cards", or warm up in Practice.' : ""}`;
-  document.querySelectorAll('[data-mode="daily"]').forEach((b) => { b.disabled = !activeCards(b.dataset.play).length; });
+  $("dailyNote").textContent = `Each daily deck is fixed at 00:00 UTC and shuffled by the contract, so everyone plays the same cards in the same order. New verified cards join the next day. Three scored attempts per deck per day.`;
+  document.querySelectorAll('[data-mode="daily"]').forEach((b) => { b.disabled = !dailyDeck(b.dataset.play).length; });
   const me = state.account?.toLowerCase();
   $("curateBtn").hidden = !(me && state.owner && me === state.owner);
   $("leaderboard").innerHTML = board.length
@@ -813,7 +851,7 @@ async function refreshMenu() {
 function onWallet() { loadPlayer().then(refreshMenu); }
 async function onTxDone(j) {
   if (j.kind === "add" && j.ok) toast("Cards checked by validators. They are in the deck now.", "ok");
-  if (j.kind === "appeal" && j.ok) toast("Appeal decided. Open the card list to see the verdict.", "ok");
+  if (j.kind === "appeal" && j.ok) toast("Appeal decided. If the verdict changed, your 0.1 GEN deposit was refunded.", "ok");
   if (j.kind === "curate" && j.ok) toast("Cards updated.", "ok");
   await refreshMenu();
 }
@@ -821,7 +859,7 @@ async function onTxDone(j) {
 /* ------------------------------------------------------------------ *
  * Game engine
  * ------------------------------------------------------------------ */
-const G = { mode: "daily", section: "world", deck: [], i: 0, score: 0, streak: 0, best: 0, correct: 0, cracks: 0, answers: [], log: [],
+const G = { mode: "daily", section: "world", deck: [], i: 0, score: 0, streak: 0, best: 0, correct: 0, cracks: 0, picks: [], log: [],
   card: null, el: null, y: 0, t0: 0, fall: 0, running: false, paused: false, raf: 0, busy: false };
 
 function show(id) {
@@ -832,11 +870,13 @@ function fallMsFor(n) { return Math.max(3400, 8500 * Math.pow(0.955, n)); }
 function rowH() { return Math.max(26, Math.round($("well").clientHeight / 16)); }
 
 function start(mode, section) {
+  const daily = mode === "daily" ? dailyDeck(section) : [];
   const deck = mode === "daily"
-    ? shuffle(activeCards(section), rng(state.day * 7919 + (section === "genlayer" ? 71 : 13)))
+    ? daily.map(({ card, pos }) => ({ ...card, pos }))
     : shuffle(PRACTICE.filter((c) => c.section === section), Math.random);
-  if (!deck.length) return toast("No cards yet. Try Practice, or add cards.", "err");
-  Object.assign(G, { mode, section, deck, i: 0, score: 0, streak: 0, best: 0, correct: 0, cracks: 0, answers: [], log: [], running: true, paused: false, busy: false });
+  if (!deck.length) return toast("No cards in today's deck yet. New cards join at 00:00 UTC; try Practice meanwhile.", "err");
+  const picks = mode === "daily" ? Array((state.decks[section] || []).length).fill("x") : [];   // 'x' = retired, skipped
+  Object.assign(G, { mode, section, deck, i: 0, score: 0, streak: 0, best: 0, correct: 0, cracks: 0, picks, log: [], running: true, paused: false, busy: false });
   show("gameScreen");
   $("cracks").innerHTML = "";
   hud();
@@ -893,8 +933,7 @@ function answer(pick) {   // pick: "T" | "F" | null (timed out)
   const c = G.card, el = G.el;
   const truth = c.verdict === "TRUE" ? "T" : "F";
   const ok = pick === truth;
-  if (pick && !c.practice) G.answers.push(`${c.id}:${pick}`);
-  else if (!pick && !c.practice) G.answers.push(`${c.id}:${truth === "T" ? "F" : "T"}`);   // a miss counts as wrong
+  if (!c.practice) { G.picks[c.pos] = pick || "-"; G.lastPos = c.pos; }   // '-' = missed, scored as wrong
   G.log.push({ card: c, pick, ok });
   el.style.setProperty("--y", `${G.y}px`);
   el.classList.add(pick === "F" ? "go-f" : pick === "T" ? "go-t" : (truth === "T" ? "go-f" : "go-t"));
@@ -954,12 +993,13 @@ function finish(reason) {   // "cleared" | "caved" | "quit"
   $("rCorrect").textContent = `${G.correct}/${answered}`;
   $("rStreak").textContent = G.best;
   $("rAcc").textContent = answered ? `${Math.round((100 * G.correct) / answered)}%` : "0%";
-  const canSubmit = G.mode === "daily" && G.answers.length > 0 && !!CONTRACT;
+  const left = state.player?.attempts_left?.[G.section];
+  const canSubmit = G.mode === "daily" && G.log.length > 0 && !!CONTRACT;
   $("submitRun").hidden = !canSubmit;
-  $("submitRun").disabled = false;               // fresh run, fresh button
-  $("submitRun").textContent = "Submit score on-chain";
+  $("submitRun").disabled = left === 0;          // fresh run, fresh button
+  $("submitRun").textContent = left === 0 ? "No attempts left today" : "Submit score on-chain";
   $("rHint").textContent = G.mode === "daily"
-    ? "Submitting sends your answers, not your score. The contract recomputes the score itself."
+    ? `Submitting sends your answers in deck order, not your score. The contract rebuilds today's deck and replays the run with the same rules.${left != null ? ` Attempts left today: ${left} of 3.` : ""}`
     : "Practice cards aren't on-chain yet, so practice scores stay on this device.";
   $("answers").innerHTML = G.log.map(({ card, pick, ok }) => {
     const v = card.verdict === "TRUE";
@@ -1043,7 +1083,7 @@ $("share").addEventListener("click", async () => {
 $("submitRun").addEventListener("click", async (e) => {
   const b = e.currentTarget;
   b.disabled = true;
-  const job = await send("submit_run", [state.day, G.section, G.answers.join(",")], { kind: "run", title: `Submit ${SECTION_NAME[G.section]} run · ${G.score} pts` });
+  const job = await send("submit_run", [state.day, G.section, G.picks.slice(0, (G.lastPos ?? -1) + 1).join("")], { kind: "run", title: `Submit ${SECTION_NAME[G.section]} run · ${G.score} pts` });
   if (!job) { b.disabled = false; return; }
   b.textContent = "Submitted";
 });
@@ -1102,7 +1142,9 @@ $("appealForm").addEventListener("submit", async (e) => {
   if (e.submitter?.value === "cancel") return;
   e.preventDefault();
   $("apSubmit").disabled = true;
-  const job = await send("appeal", [appealId, $("apReason").value.trim()], { kind: "appeal", value: APPEAL_FEE, title: `Appeal card #${appealId}` });
+  const ev = $("apEvidence").value.trim();
+  if (ev && !ev.startsWith("https://")) { $("apSubmit").disabled = false; return toast("Evidence must be an https:// link, or leave it empty.", "err"); }
+  const job = await send("appeal", [appealId, $("apReason").value.trim(), ev], { kind: "appeal", value: APPEAL_FEE, title: `Appeal card #${appealId}${ev ? " with new evidence" : ""}` });
   $("apSubmit").disabled = false;
   if (!job) return;
   $("appealDlg").close(); $("appealForm").reset();
