@@ -135,15 +135,18 @@ genlayer write <contract> set_owner --args 0xYourBrowserWallet
 
 ## Live proof (Bradbury)
 
-The README lists transaction links for: a card batch accepted, an evidence appeal that retired a card and refunded 0.1 GEN, and a legitimate daily run scored by the contract. Fill in after running them.
+Contract page with every transaction: https://explorer-bradbury.genlayer.com/address/0xEBA590341D0C04BE889bb1647e9c5B867Ea9c80f
+
+The README lists transaction links for: a card batch accepted, an evidence appeal that retired a card and refunded 0.1 GEN, and a legitimate daily run scored by the contract. All three were run on 11 and 12 October 2026.
 
 The appeal demo uses `demo/outdated-staking-note.md`, a deliberately outdated test fixture in this repo. A card checked against it says "The minimum delegation is 10 GEN" is TRUE; an appeal that adds the official staking docs (42 GEN) as evidence makes the sources conflict, which retires the card and refunds the deposit.
 
 | Proof | Transaction |
 | --- | --- |
-| Card batch accepted | _fill in_ |
-| Evidence appeal retired a card, 0.1 GEN refunded | _fill in_ |
-| Daily run submitted and scored | _fill in_ |
+| Card batch accepted (5 GenLayer cards, 3 TRUE / 2 FALSE) | [0xf4e83e72…988f32](https://explorer-bradbury.genlayer.com/tx/0xf4e83e72a36eebaa8e78b890fe059fef503ff186fabf08939337821b4a988f32) |
+| Demo card accepted (from the outdated fixture, TRUE) | [0x7ec788a0…9e26c2](https://explorer-bradbury.genlayer.com/tx/0x7ec788a03ed6158b9bdaeaf8a017fe30cc35665cce88d8eb219ae5e8069e26c2) |
+| Evidence appeal on the demo card: sources conflict (10 GEN vs 42 GEN), card retired, 0.10 GEN refunded by internal transfer | [0x4e566f89…f210a5](https://explorer-bradbury.genlayer.com/tx/0x4e566f893cb14f74f478049cf8aae415d1504e0cb4f2103c641e496862f210a5) |
+| Daily GenLayer run (6-card deck) submitted, replayed and scored by the contract: 400 points | [0x55ffe3ca…710341](https://explorer-bradbury.genlayer.com/tx/0x55ffe3ca7394e5b1a1e28d3997b08825732bcfa92de6b83d6f46551e7f710341) |
 
 ## Deployment record
 
